@@ -8,15 +8,22 @@ extension NSPasteboard.PasteboardType {
 }
 
 struct ShelfItem: Identifiable, Equatable {
+    /// A card for a file still on its way, or one that never arrived. Neither
+    /// can be dragged anywhere — there is no file to hand over — only removed.
+    enum Status: Equatable { case ready, downloading, failed }
+
     let id = UUID()
-    let url: URL
+    var url: URL
+    var status: Status = .ready
     /// Starts as the file-type icon and is replaced by a real preview once
     /// QuickLook renders one — a shelf of identical PNG icons is useless when
     /// what it holds is screenshots.
     var icon: NSImage
     var name: String { url.lastPathComponent }
 
-    static func == (lhs: ShelfItem, rhs: ShelfItem) -> Bool { lhs.url == rhs.url }
+    var isReady: Bool { status == .ready }
+
+    static func == (lhs: ShelfItem, rhs: ShelfItem) -> Bool { lhs.url == rhs.url && lhs.status == rhs.status }
 }
 
 /// Drop zone contents. Files are referenced, never copied — the shelf is a
@@ -73,13 +80,46 @@ final class ShelfStore: ObservableObject {
     /// interruption.
     func refreshFromDisk() {
         guard !items.isEmpty else { return }
-        let gone = Set(items.filter { Self.isGone($0.url) }.map(\.id))
+        let gone = Set(items.filter { $0.isReady && Self.isGone($0.url) }.map(\.id))
         if !gone.isEmpty {
             items.removeAll { gone.contains($0.id) }
             selection.subtract(gone)
             persist()
         }
-        items.forEach(loadThumbnail)
+        items.filter(\.isReady).forEach(loadThumbnail)
+    }
+
+    /// A download that has started: shown at once, with no file to drag yet.
+    func addDownloading(_ partial: URL) {
+        guard !items.contains(where: { $0.url == partial }) else { return }
+        let item = ShelfItem(
+            url: partial,
+            status: .downloading,
+            icon: NSWorkspace.shared.icon(for: UTType(filenameExtension: DownloadNames.finalURL(for: partial).pathExtension) ?? .data)
+        )
+        items.insert(item, at: 0)
+    }
+
+    /// The download behind `partial` ended: as `final` if it arrived, as a
+    /// failed card if it did not.
+    func finishDownload(_ partial: URL, as final: URL?) {
+        guard let index = items.firstIndex(where: { $0.url == partial }) else {
+            if let final { add([final]) }
+            return
+        }
+        guard let final else {
+            items[index].status = .failed
+            return
+        }
+        if let duplicate = items.firstIndex(where: { $0.url == final }), duplicate != index {
+            items.remove(at: index)
+            return
+        }
+        items[index].url = final
+        items[index].status = .ready
+        items[index].icon = NSWorkspace.shared.icon(forFile: final.path)
+        loadThumbnail(items[index])
+        persist()
     }
 
     /// Whether the file is actually gone, as opposed to merely out of reach.
@@ -191,8 +231,9 @@ final class ShelfStore: ObservableObject {
     /// Files a drag started on `item` should carry: the whole selection when
     /// the grabbed card belongs to it, otherwise just that card.
     func dragURLs(startingAt item: ShelfItem) -> [URL] {
+        guard item.isReady else { return [] }
         guard selection.contains(item.id) else { return [item.url] }
-        return items.filter { selection.contains($0.id) }.map(\.url)
+        return items.filter { selection.contains($0.id) && $0.isReady }.map(\.url)
     }
 
     func reveal(_ item: ShelfItem) {
@@ -249,6 +290,6 @@ final class ShelfStore: ObservableObject {
     }
 
     private func persist() {
-        UserDefaults.standard.set(items.map(\.url.path), forKey: defaultsKey)
+        UserDefaults.standard.set(items.filter(\.isReady).map(\.url.path), forKey: defaultsKey)
     }
 }

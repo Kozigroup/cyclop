@@ -16,6 +16,14 @@ import UniformTypeIdentifiers
 final class ScreenshotFolderWatcher {
     /// A new screenshot file, ready to go on the shelf.
     var onImage: ((URL) -> Void)?
+    /// Downloads only: a browser started writing a file.
+    var onDownloadStarted: ((URL) -> Void)?
+    /// Downloads only: the in-progress file is gone — renamed to its final
+    /// name (passed along), or deleted because the download failed (`nil`).
+    var onDownloadEnded: ((URL, URL?) -> Void)?
+
+    /// In-progress files being followed, by name.
+    private var pending: [String: URL] = [:]
 
     /// What the watcher is for: screenshots (images only) or downloads
     /// (any finished file — browser partials are skipped).
@@ -25,9 +33,6 @@ final class ScreenshotFolderWatcher {
     private var enabledKey: String { kind == .screenshots ? "screenshotFolderWatch.enabled" : "downloadsFolderWatch.enabled" }
     private var pathKey: String { kind == .screenshots ? "screenshotFolderWatch.path" : "downloadsFolderWatch.path" }
 
-    /// Unfinished downloads that Chrome, Safari and Firefox write first and
-    /// rename when done — the rename shows up as a new name and is picked up then.
-    private static let partialExtensions: Set<String> = ["crdownload", "download", "part", "partial", "tmp"]
 
     init(kind: Kind = .screenshots) { self.kind = kind }
 
@@ -113,6 +118,7 @@ final class ScreenshotFolderWatcher {
     }
 
     func stop() {
+        pending.removeAll()
         source?.cancel()
         source = nil
     }
@@ -143,15 +149,40 @@ final class ScreenshotFolderWatcher {
     /// file, rename, delete — so this diffs against `seen` rather than
     /// trusting the event to mean "a screenshot arrived".
     private func scan(_ folder: URL) {
-        for url in entries(in: folder) {
+        let current = entries(in: folder)
+        let names = Set(current.map(\.lastPathComponent))
+        let fresh = current.filter { !seen.contains($0.lastPathComponent) && !DownloadNames.isPartial($0) }
+
+        // Downloads that were in progress and whose partial file is now gone:
+        // either it became the final file, or the download died.
+        if kind == .downloads {
+            for (name, partial) in pending where !names.contains(name) {
+                pending[name] = nil
+                let expected = DownloadNames.finalURL(for: partial)
+                if names.contains(expected.lastPathComponent) {
+                    onDownloadEnded?(partial, expected)
+                } else if pending.isEmpty, fresh.count == 1 {
+                    // Chrome's "Unconfirmed 123.crdownload" carries no final
+                    // name; one new file arriving as it vanishes is the match.
+                    onDownloadEnded?(partial, fresh[0])
+                } else {
+                    onDownloadEnded?(partial, nil)
+                }
+            }
+        }
+
+        for url in current {
             let name = url.lastPathComponent
             guard !seen.contains(name) else { continue }
             seen.insert(name)
+            if kind == .downloads, DownloadNames.isPartial(url) {
+                pending[name] = url
+                onDownloadStarted?(url)
+                continue
+            }
             if kind == .screenshots {
                 guard let type = UTType(filenameExtension: url.pathExtension),
                       type.conforms(to: .image) else { continue }
-            } else {
-                guard !Self.partialExtensions.contains(url.pathExtension.lowercased()) else { continue }
             }
             waitForStableSize(url, lastSize: -1, attempt: 0)
         }

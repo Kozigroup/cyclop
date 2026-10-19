@@ -20,7 +20,7 @@ final class DownloadsQuery {
         get { UserDefaults.standard.bool(forKey: enabledKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: enabledKey)
-            newValue ? start() : stop()
+            if newValue { start() } else { stop() }
         }
     }
 
@@ -42,13 +42,13 @@ final class DownloadsQuery {
         let center = NotificationCenter.default
         observers.append(center.addObserver(
             forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { self.remember() }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.remember() }
         })
         observers.append(center.addObserver(
             forName: .NSMetadataQueryDidUpdate, object: query, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { self.collect() }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.collect() }
         })
         self.query = query
         query.start()
@@ -57,7 +57,7 @@ final class DownloadsQuery {
     func stop() {
         query?.stop()
         query = nil
-        observers.forEach(NotificationCenter.default.removeObserver)
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers.removeAll()
         known.removeAll()
     }
@@ -79,15 +79,28 @@ final class DownloadsQuery {
         for path in paths() where !known.contains(path) {
             known.insert(path)
             let url = URL(fileURLWithPath: path)
-            let ext = url.pathExtension.lowercased()
-            guard !["crdownload", "download", "part", "partial", "tmp"].contains(ext) else { continue }
+            guard !DownloadNames.isPartial(url) else { continue }
             // Old files can re-enter the results when Spotlight re-indexes
             // them; only things that appeared since the query started count.
-            let added = (try? url.resourceValues(forKeys: [.addedToDirectoryDateKey]))?.addedToDirectoryDate
-                ?? (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
-                ?? .distantPast
+            let values = try? url.resourceValues(forKeys: [.addedToDirectoryDateKey, .creationDateKey])
+            let added = values?.addedToDirectoryDate ?? values?.creationDate ?? .distantPast
             guard added >= startedAt.addingTimeInterval(-5) else { continue }
             onFile?(url)
         }
+    }
+}
+
+/// How browsers name a download that is still in progress.
+enum DownloadNames {
+    static let partialExtensions: Set<String> = ["crdownload", "download", "part", "partial"]
+
+    static func isPartial(_ url: URL) -> Bool {
+        partialExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    /// `report.pdf.crdownload` → `report.pdf`. Chrome's "Unconfirmed 123"
+    /// names have no final name inside them; the caller matches those by time.
+    static func finalURL(for partial: URL) -> URL {
+        partial.deletingPathExtension()
     }
 }
