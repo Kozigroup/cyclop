@@ -141,3 +141,8 @@
 "Watch Downloads Folder" = "Следить за папкой загрузок";
 "Choose Downloads Folder" = "Выбор папки загрузок";
 "Cyclop will watch this folder for new downloads and add them to the shelf." = "Cyclop будет следить за этой папкой и класть новые загрузки на полку.";
+"Whole Page" = "Весь сайт";
+"Capturing…" = "Снимаю…";
+"No page found: open it in the browser or copy its link" = "Нет страницы: открой её в браузере или скопируй ссылку";
+"The page did not load" = "Страница не загрузилась";
+"Page" = "Страница";

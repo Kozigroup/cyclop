@@ -27,8 +27,9 @@ enum ScreenshotVault {
         return formatter
     }()
 
-    static func save(_ png: Data, at date: Date = Date()) -> URL? {
-        let base = "\(localized("Screenshot")) \(stamp.string(from: date))"
+    /// A free file name in the vault, not yet written.
+    static func nextURL(prefix: String? = nil, at date: Date = Date()) -> URL {
+        let base = "\(prefix ?? localized("Screenshot")) \(stamp.string(from: date))"
         var url = folder.appendingPathComponent("\(base).png")
         // Two screenshots inside one second would otherwise collide.
         var attempt = 2
@@ -36,6 +37,11 @@ enum ScreenshotVault {
             url = folder.appendingPathComponent("\(base) (\(attempt)).png")
             attempt += 1
         }
+        return url
+    }
+
+    static func save(_ png: Data, prefix: String? = nil, at date: Date = Date()) -> URL? {
+        let url = nextURL(prefix: prefix, at: date)
         do {
             try png.write(to: url, options: .atomic)
             return url

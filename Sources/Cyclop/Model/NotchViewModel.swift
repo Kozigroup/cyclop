@@ -370,6 +370,34 @@ final class NotchViewModel: ObservableObject {
     /// With the shelf switched off the file is still kept — the folder it was
     /// saved to is the user's, and the card will be there when the shelf is
     /// back — but the panel does not jump to a tab that is not on the rail.
+    /// What the capture row in the shelf is doing right now.
+    enum CaptureState: Equatable { case idle, page, failed(String) }
+    @Published var captureState: CaptureState = .idle
+
+    func captureRegion() {
+        Task { @MainActor in
+            if let url = await RegionCapture.run() { receivedScreenshot(at: url) }
+        }
+    }
+
+    /// The front browser tab, top to bottom, as one picture on the shelf.
+    func capturePage() {
+        guard captureState != .page else { return }
+        guard let url = PageCapture.currentURL() else {
+            captureState = .failed(localized("No page found: open it in the browser or copy its link"))
+            return
+        }
+        captureState = .page
+        Task { @MainActor in
+            if let file = await PageCapture.shared.capture(url) {
+                captureState = .idle
+                receivedScreenshot(at: file)
+            } else {
+                captureState = .failed(localized("The page did not load"))
+            }
+        }
+    }
+
     func receivedScreenshot(at url: URL) {
         shelf.add([url])
         guard !isTyping, isVisible(.shelf) else { return }

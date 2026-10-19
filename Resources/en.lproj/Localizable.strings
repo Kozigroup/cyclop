@@ -142,3 +142,8 @@
 "Watch Downloads Folder" = "Watch Downloads Folder";
 "Choose Downloads Folder" = "Choose Downloads Folder";
 "Cyclop will watch this folder for new downloads and add them to the shelf." = "Cyclop will watch this folder for new downloads and add them to the shelf.";
+"Whole Page" = "Whole Page";
+"Capturing…" = "Capturing…";
+"No page found: open it in the browser or copy its link" = "No page found: open it in the browser or copy its link";
+"The page did not load" = "The page did not load";
+"Page" = "Page";

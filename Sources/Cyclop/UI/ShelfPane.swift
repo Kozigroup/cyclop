@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ShelfPane: View {
     @ObservedObject var shelf: ShelfStore
+    @ObservedObject var vm: NotchViewModel
     var isTargeted: Bool
 
     /// Which card the pointer is over — decided by the pane, not by the cards.
@@ -57,8 +58,8 @@ struct ShelfPane: View {
                     rehit()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                footer
             }
+            footer
         }
         .padding(.top, 2)
     }
@@ -91,6 +92,18 @@ struct ShelfPane: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
+            captureButton(symbol: "viewfinder", title: localized("Screenshot")) { vm.captureRegion() }
+            captureButton(
+                symbol: vm.captureState == .page ? "hourglass" : "doc.richtext",
+                title: vm.captureState == .page ? localized("Capturing…") : localized("Whole Page")
+            ) { vm.capturePage() }
+            if case .failed(let message) = vm.captureState {
+                Text(message)
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+                    .onTapGesture { vm.captureState = .idle }
+            }
             if !shelf.selection.isEmpty {
                 Text(localized("Selected: %d", shelf.selection.count))
                     .font(.system(size: 9))
@@ -103,12 +116,28 @@ struct ShelfPane: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.secondary)
             }
-            Button("Clear") { shelf.clear() }
-                .buttonStyle(.plain)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Theme.secondary)
+            if !shelf.items.isEmpty {
+                Button("Clear") { shelf.clear() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.secondary)
+            }
         }
         .padding(.top, 2)
+    }
+
+    private func captureButton(symbol: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 10, weight: .medium))
+                Text(title).font(.system(size: 10, weight: .medium))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Theme.surface))
+        }
+        .buttonStyle(.plain)
     }
 }
 
