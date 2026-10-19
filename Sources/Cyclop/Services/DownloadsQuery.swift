@@ -60,7 +60,15 @@ final class DownloadsQuery {
 
     func start() {
         stop()
-        guard !folders.isEmpty else { return }
+        guard !folders.isEmpty else {
+            Diag.shared.set("1 папки", "не выбраны")
+            return
+        }
+        let readable = folders.map { path -> String in
+            let ok = (try? FileManager.default.contentsOfDirectory(atPath: path)) != nil
+            return "\((path as NSString).lastPathComponent) \(ok ? "✓" : "✗ нет доступа")"
+        }
+        Diag.shared.set("1 папки", readable.joined(separator: ", "))
         startedAt = Date()
         var context = FSEventStreamContext(
             version: 0,
@@ -76,7 +84,11 @@ final class DownloadsQuery {
             folders as CFArray,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             0.3, flags
-        ) else { return }
+        ) else {
+            Diag.shared.set("2 поток", "не создан")
+            return
+        }
+        Diag.shared.set("2 поток", "слушаю")
         FSEventStreamSetDispatchQueue(stream, .main)
         FSEventStreamStart(stream)
         self.stream = stream
@@ -110,18 +122,29 @@ final class DownloadsQuery {
         }
     }
 
+    private var eventCount = 0
+
     private func handle(_ paths: [String]) {
+        eventCount += paths.count
+        Diag.shared.set("3 события", "\(eventCount), последнее: \((paths.last.map { ($0 as NSString).lastPathComponent }) ?? "-")")
         for path in paths where !reported.contains(path) {
             let url = URL(fileURLWithPath: path)
+            let name = url.lastPathComponent
             // Hidden files, anything inside a hidden folder or an app bundle,
             // and the browser's half-written files are noise, not saves.
             guard !url.pathComponents.contains(where: { $0.hasPrefix(".") }),
                   !url.pathComponents.contains(where: { $0.hasSuffix(".app") }),
                   !DownloadNames.isPartial(url),
-                  FileManager.default.fileExists(atPath: path) else { continue }
+                  FileManager.default.fileExists(atPath: path) else {
+                Diag.shared.set("4 отброшен", "\(name): скрытый/частичный/нет файла")
+                continue
+            }
             let values = try? url.resourceValues(forKeys: [.addedToDirectoryDateKey, .creationDateKey])
             let added = values?.addedToDirectoryDate ?? values?.creationDate ?? .distantPast
-            guard added >= startedAt.addingTimeInterval(-5) else { continue }
+            guard added >= startedAt.addingTimeInterval(-5) else {
+                Diag.shared.set("4 отброшен", "\(name): старый (\(added))")
+                continue
+            }
             reported.insert(path)
             waitForStableSize(url, lastSize: -1, attempt: 0)
         }
@@ -130,6 +153,7 @@ final class DownloadsQuery {
     private func waitForStableSize(_ url: URL, lastSize: Int, attempt: Int) {
         guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int else { return }
         if size == lastSize && size > 0 {
+            Diag.shared.set("5 на полку", url.lastPathComponent)
             onFile?(url)
             return
         }

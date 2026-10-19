@@ -12,6 +12,7 @@ struct SettingsPane: View {
     let screenshots: ScreenshotFolderWatcher
     let downloads: ScreenshotFolderWatcher
     let everywhere: DownloadsQuery
+    @ObservedObject private var diag = Diag.shared
     @ObservedObject private var config = ConfigStore.shared
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -99,6 +100,13 @@ struct SettingsPane: View {
                             }
                         )
                     )
+                    ForEach(diag.lines.keys.sorted(), id: \.self) { key in
+                        Text(verbatim: "\(key): \(diag.lines[key] ?? "")")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Theme.tertiary)
+                            .lineLimit(2)
+                            .padding(.horizontal, 8)
+                    }
                     actionRow(symbol: "folder", title: localized("Show Screenshots Folder")) {
                         ScreenshotVault.reveal()
                     }

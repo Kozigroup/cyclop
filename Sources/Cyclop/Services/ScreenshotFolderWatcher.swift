@@ -128,6 +128,9 @@ final class ScreenshotFolderWatcher {
         seen = Set(entries(in: folder).map(\.lastPathComponent))
 
         let fd = open(folder.path, O_EVTONLY)
+        if kind == .downloads {
+            Diag.shared.set("0 загрузки", fd >= 0 ? "слушаю \(folder.lastPathComponent)" : "✗ нет доступа (\(errno))")
+        }
         guard fd >= 0 else { return }
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd, eventMask: .write, queue: .main
