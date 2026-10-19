@@ -11,6 +11,7 @@ struct SettingsPane: View {
     @ObservedObject var shelf: ShelfStore
     let screenshots: ScreenshotFolderWatcher
     let downloads: ScreenshotFolderWatcher
+    let everywhere: DownloadsQuery
     @ObservedObject private var config = ConfigStore.shared
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -20,6 +21,7 @@ struct SettingsPane: View {
     @State private var fullSizeNotch = NotchGeometry.drawsFullSizeNotch
     @State private var watchScreenshotFolder = false
     @State private var watchDownloadsFolder = false
+    @State private var catchAllDownloads = false
     @State private var screenshotUsage: (files: Int, bytes: Int64) = (0, 0)
 
     var body: some View {
@@ -81,6 +83,14 @@ struct SettingsPane: View {
                         symbol: "arrow.down.circle",
                         title: localized("Watch Downloads Folder"),
                         isOn: watchDownloadsFolderBinding
+                    )
+                    toggleRow(
+                        symbol: "arrow.down.to.line.circle",
+                        title: localized("Catch Downloads Anywhere"),
+                        isOn: Binding(
+                            get: { catchAllDownloads },
+                            set: { everywhere.isEnabled = $0; catchAllDownloads = $0 }
+                        )
                     )
                     actionRow(symbol: "folder", title: localized("Show Screenshots Folder")) {
                         ScreenshotVault.reveal()
@@ -144,6 +154,7 @@ struct SettingsPane: View {
             fullSizeNotch = NotchGeometry.drawsFullSizeNotch
             watchScreenshotFolder = screenshots.isEnabled
             watchDownloadsFolder = downloads.isEnabled
+            catchAllDownloads = everywhere.isEnabled
             refreshUsage()
         }
     }

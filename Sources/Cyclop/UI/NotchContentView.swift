@@ -206,7 +206,7 @@ struct NotchContentView: View {
         case .utilities:
             UtilitiesPane(lock: vm.keyboardLock)
         case .settings:
-            SettingsPane(vm: vm, shelf: vm.shelf, screenshots: vm.screenshotFolder, downloads: vm.downloadsFolder)
+            SettingsPane(vm: vm, shelf: vm.shelf, screenshots: vm.screenshotFolder, downloads: vm.downloadsFolder, everywhere: vm.downloadsEverywhere)
         }
     }
 }
