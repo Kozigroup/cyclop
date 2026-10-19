@@ -79,6 +79,11 @@ final class ScreenshotFolderWatcher {
         panel.directoryURL = kind == .screenshots
             ? Self.systemLocation
             : FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads", isDirectory: true)
+        // Cyclop is a menu-bar accessory and never the active app, so without
+        // this the Open panel opens behind every other window and the switch
+        // looks dead.
+        panel.level = .modalPanel
+        NSApp.activate(ignoringOtherApps: true)
         panel.begin { [weak self] response in
             guard let self, response == .OK, let url = panel.url else {
                 completion(false)
