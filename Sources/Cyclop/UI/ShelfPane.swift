@@ -167,7 +167,20 @@ private struct ShelfCard: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 68, height: 40)
-            Text(item.name)
+                .opacity(item.isReady ? 1 : 0.35)
+                .overlay {
+                    switch item.status {
+                    case .downloading:
+                        ProgressView().controlSize(.small)
+                    case .failed:
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(.orange)
+                    case .ready:
+                        EmptyView()
+                    }
+                }
+            Text(item.status == .failed ? localized("Download failed") : item.name)
                 .font(.system(size: 9))
                 .foregroundStyle(Theme.secondary)
                 .lineLimit(2)
@@ -192,8 +205,8 @@ private struct ShelfCard: View {
         .overlay(
             ShelfDragSource(
                 urls: { shelf.dragURLs(startingAt: item) },
-                onClick: { modifiers in shelf.select(item, modifiers: modifiers) },
-                onDoubleClick: { shelf.open(item) }
+                onClick: { modifiers in if item.isReady { shelf.select(item, modifiers: modifiers) } },
+                onDoubleClick: { if item.isReady { shelf.open(item) } }
             )
         )
         .overlay(alignment: .topLeading) {
@@ -206,7 +219,7 @@ private struct ShelfCard: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            if isHovered {
+            if isHovered || item.status == .failed {
                 Button { shelf.remove(item) } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 13))
@@ -218,10 +231,12 @@ private struct ShelfCard: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .contextMenu {
-            Button("Copy") { shelf.copy(item) }
-            Button("Open") { shelf.open(item) }
-            Button("Show in Finder") { shelf.reveal(item) }
-            Divider()
+            if item.isReady {
+                Button("Copy") { shelf.copy(item) }
+                Button("Open") { shelf.open(item) }
+                Button("Show in Finder") { shelf.reveal(item) }
+                Divider()
+            }
             Button("Remove from Shelf") { shelf.remove(item) }
         }
         .animation(Theme.contentAnimation, value: isHovered)

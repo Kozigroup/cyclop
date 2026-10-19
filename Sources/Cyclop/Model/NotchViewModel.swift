@@ -151,7 +151,6 @@ final class NotchViewModel: ObservableObject {
             screenshotFolder.resumeIfEnabled()
             downloadsFolder.resumeIfEnabled()
             downloadsEverywhere.resumeIfEnabled()
-            downloadsEverywhere.resumeIfEnabled()
         case .currency:
             currencies.start()
         case .snippets, .translate, .notes, .teleprompter, .utilities, .settings:
@@ -164,7 +163,7 @@ final class NotchViewModel: ObservableObject {
         case .media: media.stop()
         case .clipboard: clipboard.stop()
         case .calendar: calendar.stop()
-        case .shelf: screenshotFolder.stop(); downloadsFolder.stop(); downloadsEverywhere.stop(); downloadsEverywhere.stop()
+        case .shelf: screenshotFolder.stop(); downloadsFolder.stop(); downloadsEverywhere.stop()
         case .currency: currencies.stop()
         // Taking the tab off the rail with the screen still covered would
         // leave the tap installed and no way back to it.
@@ -244,7 +243,6 @@ final class NotchViewModel: ObservableObject {
     let screenshotFolder: ScreenshotFolderWatcher
     let downloadsFolder: ScreenshotFolderWatcher
     let downloadsEverywhere: DownloadsQuery
-    let downloadsEverywhere: DownloadsQuery
     let calendar: CalendarStore
     let translator: Translator
     let currencies: CurrencyStore
@@ -266,7 +264,6 @@ final class NotchViewModel: ObservableObject {
         self.clipboard = ClipboardStore()
         self.screenshotFolder = ScreenshotFolderWatcher()
         self.downloadsFolder = ScreenshotFolderWatcher(kind: .downloads)
-        self.downloadsEverywhere = DownloadsQuery()
         self.downloadsEverywhere = DownloadsQuery()
         self.calendar = CalendarStore()
         self.translator = Translator()
@@ -356,10 +353,6 @@ final class NotchViewModel: ObservableObject {
         }
         downloadsFolder.onDownloadEnded = { [weak self] partial, final in
             self?.shelf.finishDownload(partial, as: final)
-        }
-        downloadsEverywhere.onFile = { [weak self] url in
-            guard let self, !self.shelf.items.contains(where: { $0.url == url }) else { return }
-            self.receivedScreenshot(at: url)
         }
         downloadsEverywhere.onFile = { [weak self] url in
             guard let self, !self.shelf.items.contains(where: { $0.url == url }) else { return }
