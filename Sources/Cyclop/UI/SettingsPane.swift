@@ -86,10 +86,17 @@ struct SettingsPane: View {
                     )
                     toggleRow(
                         symbol: "arrow.down.to.line.circle",
-                        title: localized("Catch Downloads Anywhere"),
+                        title: localized("Catch New Files in Folders"),
                         isOn: Binding(
                             get: { catchAllDownloads },
-                            set: { everywhere.isEnabled = $0; catchAllDownloads = $0 }
+                            set: { wants in
+                                if wants {
+                                    everywhere.requestAccess { granted in catchAllDownloads = granted }
+                                } else {
+                                    everywhere.disable()
+                                    catchAllDownloads = false
+                                }
+                            }
                         )
                     )
                     actionRow(symbol: "folder", title: localized("Show Screenshots Folder")) {
