@@ -111,6 +111,12 @@ xattr -cr "$APP"
 if [ "$IDENTITY" = "-" ]; then
     codesign --force --sign - "$APP/Contents/Resources/libcyclopmedia.dylib"
     codesign --force --sign - "$APP"
+elif [ "${CODESIGN_SELF:-}" = "1" ]; then
+    # Личный самоподписанный сертификат: та же подпись у каждой сборки, так что
+    # macOS помнит выданные разрешения после обновления. Без runtime и отметки
+    # времени — как ad-hoc, по той же причине (#20).
+    codesign --force --sign "$IDENTITY" "$APP/Contents/Resources/libcyclopmedia.dylib"
+    codesign --force --sign "$IDENTITY" "$APP"
 else
     codesign --force --timestamp --sign "$IDENTITY" \
         "$APP/Contents/Resources/libcyclopmedia.dylib"

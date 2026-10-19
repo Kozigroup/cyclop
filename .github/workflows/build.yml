@@ -18,8 +18,27 @@ jobs:
   build:
     # macOS 15 — минимум приложения: Translation.framework младше не бывает.
     runs-on: macos-15
+    env:
+      SIGN_P12: ${{ secrets.CYCLOP_SIGN_P12 }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Личная подпись (если задан секрет CYCLOP_SIGN_P12)
+        # Одна и та же подпись у каждой сборки — macOS не сбрасывает
+        # разрешения (Полный доступ к диску и т.п.) после обновления.
+        if: ${{ env.SIGN_P12 != '' }}
+        run: |
+          KC="$RUNNER_TEMP/sign.keychain-db"
+          echo "$SIGN_P12" | base64 --decode > "$RUNNER_TEMP/sign.p12"
+          security create-keychain -p ci "$KC"
+          security set-keychain-settings "$KC"
+          security unlock-keychain -p ci "$KC"
+          security import "$RUNNER_TEMP/sign.p12" -k "$KC" -P cyclop -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          HASH=$(security find-certificate -a -Z "$KC" | awk '/SHA-1/{print $3; exit}')
+          echo "CODESIGN_IDENTITY=$HASH" >> "$GITHUB_ENV"
+          echo "CODESIGN_SELF=1" >> "$GITHUB_ENV"
 
       - name: Ключи перевода совпадают с кодом
         # Первым шагом, а не последним: проверка занимает секунды, а сборка
