@@ -149,6 +149,7 @@ final class NotchViewModel: ObservableObject {
             // Off until the user grants a folder through `requestAccess`;
             // this only re-arms a watch already approved on a previous launch.
             screenshotFolder.resumeIfEnabled()
+            downloadsFolder.resumeIfEnabled()
         case .currency:
             currencies.start()
         case .snippets, .translate, .notes, .teleprompter, .utilities, .settings:
@@ -161,7 +162,7 @@ final class NotchViewModel: ObservableObject {
         case .media: media.stop()
         case .clipboard: clipboard.stop()
         case .calendar: calendar.stop()
-        case .shelf: screenshotFolder.stop()
+        case .shelf: screenshotFolder.stop(); downloadsFolder.stop()
         case .currency: currencies.stop()
         // Taking the tab off the rail with the screen still covered would
         // leave the tap installed and no way back to it.
@@ -239,6 +240,7 @@ final class NotchViewModel: ObservableObject {
     let shelf: ShelfStore
     let clipboard: ClipboardStore
     let screenshotFolder: ScreenshotFolderWatcher
+    let downloadsFolder: ScreenshotFolderWatcher
     let calendar: CalendarStore
     let translator: Translator
     let currencies: CurrencyStore
@@ -259,6 +261,7 @@ final class NotchViewModel: ObservableObject {
         self.shelf = ShelfStore()
         self.clipboard = ClipboardStore()
         self.screenshotFolder = ScreenshotFolderWatcher()
+        self.downloadsFolder = ScreenshotFolderWatcher(kind: .downloads)
         self.calendar = CalendarStore()
         self.translator = Translator()
         self.currencies = CurrencyStore()
@@ -330,6 +333,13 @@ final class NotchViewModel: ObservableObject {
         // Same destination as a clipboard screenshot, and the same reason:
         // confirmation that the shot actually landed.
         screenshotFolder.onImage = { [weak self] url in
+            guard let self else { return }
+            self.receivedScreenshot(at: url)
+        }
+
+        // A finished download goes on the shelf the same way, so it is one
+        // hover away instead of buried in the Downloads folder.
+        downloadsFolder.onImage = { [weak self] url in
             guard let self else { return }
             self.receivedScreenshot(at: url)
         }

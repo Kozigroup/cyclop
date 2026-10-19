@@ -10,6 +10,7 @@ struct SettingsPane: View {
     @ObservedObject var vm: NotchViewModel
     @ObservedObject var shelf: ShelfStore
     let screenshots: ScreenshotFolderWatcher
+    let downloads: ScreenshotFolderWatcher
     @ObservedObject private var config = ConfigStore.shared
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -18,6 +19,7 @@ struct SettingsPane: View {
     @State private var allDisplays = NotchGeometry.showsOnAllDisplays
     @State private var fullSizeNotch = NotchGeometry.drawsFullSizeNotch
     @State private var watchScreenshotFolder = false
+    @State private var watchDownloadsFolder = false
     @State private var screenshotUsage: (files: Int, bytes: Int64) = (0, 0)
 
     var body: some View {
@@ -74,6 +76,11 @@ struct SettingsPane: View {
                         symbol: "eye",
                         title: localized("Watch Screenshots Folder"),
                         isOn: watchScreenshotFolderBinding
+                    )
+                    toggleRow(
+                        symbol: "arrow.down.circle",
+                        title: localized("Watch Downloads Folder"),
+                        isOn: watchDownloadsFolderBinding
                     )
                     actionRow(symbol: "folder", title: localized("Show Screenshots Folder")) {
                         ScreenshotVault.reveal()
@@ -136,6 +143,7 @@ struct SettingsPane: View {
             allDisplays = NotchGeometry.showsOnAllDisplays
             fullSizeNotch = NotchGeometry.drawsFullSizeNotch
             watchScreenshotFolder = screenshots.isEnabled
+            watchDownloadsFolder = downloads.isEnabled
             refreshUsage()
         }
     }
@@ -229,6 +237,20 @@ struct SettingsPane: View {
                 } else {
                     screenshots.disable()
                     watchScreenshotFolder = false
+                }
+            }
+        )
+    }
+
+    private var watchDownloadsFolderBinding: Binding<Bool> {
+        Binding(
+            get: { watchDownloadsFolder },
+            set: { wants in
+                if wants {
+                    downloads.requestAccess { granted in watchDownloadsFolder = granted }
+                } else {
+                    downloads.disable()
+                    watchDownloadsFolder = false
                 }
             }
         )

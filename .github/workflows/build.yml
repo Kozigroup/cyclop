@@ -104,6 +104,15 @@ jobs:
           # незамеченным: шаг смотрел на наличие файлов, а не на подпись (#19).
           codesign --verify --strict "$APP"
 
+      - name: Собрать архив приложения
+        run: ditto -c -k --keepParent build/Cyclop.app build/Cyclop.zip
+
+      - name: Выложить приложение
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cyclop
+          path: build/Cyclop.zip
+
       - name: Приложение переживает запуск
         # Единственный шаг, который запускает само приложение.
         #

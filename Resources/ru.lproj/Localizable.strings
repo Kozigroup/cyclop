@@ -137,3 +137,7 @@
 "Keyboard and trackpad are locked" = "Клавиатура и трекпад заблокированы";
 "Hold Esc or − for %d s" = "Держи Esc или − %d с";
 "Unlocks by itself in %d s" = "Само снимется через %d с";
+
+"Watch Downloads Folder" = "Следить за папкой загрузок";
+"Choose Downloads Folder" = "Выбор папки загрузок";
+"Cyclop will watch this folder for new downloads and add them to the shelf." = "Cyclop будет следить за этой папкой и класть новые загрузки на полку.";

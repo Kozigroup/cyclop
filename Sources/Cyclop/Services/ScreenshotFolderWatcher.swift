@@ -17,8 +17,19 @@ final class ScreenshotFolderWatcher {
     /// A new screenshot file, ready to go on the shelf.
     var onImage: ((URL) -> Void)?
 
-    private let enabledKey = "screenshotFolderWatch.enabled"
-    private let pathKey = "screenshotFolderWatch.path"
+    /// What the watcher is for: screenshots (images only) or downloads
+    /// (any finished file — browser partials are skipped).
+    enum Kind { case screenshots, downloads }
+    let kind: Kind
+
+    private var enabledKey: String { kind == .screenshots ? "screenshotFolderWatch.enabled" : "downloadsFolderWatch.enabled" }
+    private var pathKey: String { kind == .screenshots ? "screenshotFolderWatch.path" : "downloadsFolderWatch.path" }
+
+    /// Unfinished downloads that Chrome, Safari and Firefox write first and
+    /// rename when done — the rename shows up as a new name and is picked up then.
+    private static let partialExtensions: Set<String> = ["crdownload", "download", "part", "partial", "tmp"]
+
+    init(kind: Kind = .screenshots) { self.kind = kind }
 
     private var source: DispatchSourceFileSystemObject?
     /// Names already accounted for — either seen at watch-start or already
@@ -49,16 +60,25 @@ final class ScreenshotFolderWatcher {
     /// watching immediately on approval; changes nothing on cancel.
     func requestAccess(completion: @escaping (Bool) -> Void) {
         let panel = NSOpenPanel()
-        panel.title = localized("Choose Screenshots Folder")
-        panel.message = localized(
-            "Cyclop will watch this folder for new screenshots and add them to the shelf."
-        )
+        if kind == .screenshots {
+            panel.title = localized("Choose Screenshots Folder")
+            panel.message = localized(
+                "Cyclop will watch this folder for new screenshots and add them to the shelf."
+            )
+        } else {
+            panel.title = localized("Choose Downloads Folder")
+            panel.message = localized(
+                "Cyclop will watch this folder for new downloads and add them to the shelf."
+            )
+        }
         panel.prompt = localized("Watch")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
-        panel.directoryURL = Self.systemLocation
+        panel.directoryURL = kind == .screenshots
+            ? Self.systemLocation
+            : FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads", isDirectory: true)
         panel.begin { [weak self] response in
             guard let self, response == .OK, let url = panel.url else {
                 completion(false)
@@ -122,8 +142,12 @@ final class ScreenshotFolderWatcher {
             let name = url.lastPathComponent
             guard !seen.contains(name) else { continue }
             seen.insert(name)
-            guard let type = UTType(filenameExtension: url.pathExtension),
-                  type.conforms(to: .image) else { continue }
+            if kind == .screenshots {
+                guard let type = UTType(filenameExtension: url.pathExtension),
+                      type.conforms(to: .image) else { continue }
+            } else {
+                guard !Self.partialExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            }
             waitForStableSize(url, lastSize: -1, attempt: 0)
         }
     }
@@ -133,6 +157,11 @@ final class ScreenshotFolderWatcher {
     /// slow volume — the same caution `ClipboardStore.awaitImage` uses for
     /// screenshots arriving over Continuity.
     private func waitForStableSize(_ url: URL, lastSize: Int, attempt: Int) {
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+            onImage?(url)
+            return
+        }
         guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int else {
             return
         }
@@ -140,7 +169,7 @@ final class ScreenshotFolderWatcher {
             onImage?(url)
             return
         }
-        guard attempt < 10 else { return }
+        guard attempt < (kind == .downloads ? 50 : 10) else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.waitForStableSize(url, lastSize: size, attempt: attempt + 1)
         }
