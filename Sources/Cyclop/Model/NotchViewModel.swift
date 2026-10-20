@@ -104,7 +104,11 @@ final class NotchViewModel: ObservableObject {
         return Set(raw.compactMap(Tab.init(rawValue:))).filter(\.canHide)
     }
 
-    func isVisible(_ tab: Tab) -> Bool { !hiddenTabs.contains(tab) }
+    /// Only the shelf, the clipboard and settings — the rest of the original
+    /// tabs stay in the code but never reach the rail.
+    func isVisible(_ tab: Tab) -> Bool {
+        [.shelf, .clipboard, .settings].contains(tab) && !hiddenTabs.contains(tab)
+    }
 
     /// The rails as they stand with the switches applied.
     var leftRail: [Tab] { Tab.leftRail.filter(isVisible) }

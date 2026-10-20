@@ -44,42 +44,7 @@ struct SettingsPane: View {
                     )
                 }
 
-                // The rail is for what gets a glance between other things.
-                // A tab used once a month is not banned from it, but it lives
-                // there only as long as whoever never uses it can take it off —
-                // and off means quiet too: its background stops with the icon.
-                section(localized("Show in Panel")) {
-                    ForEach(NotchViewModel.Tab.leftRail + NotchViewModel.Tab.rightRail) { tab in
-                        if tab.canHide {
-                            toggleRow(symbol: tab.symbol, title: tab.title, isOn: visibilityBinding(tab))
-                        }
-                    }
-                }
-
-                section(localized("Displays")) {
-                    toggleRow(
-                        symbol: "display.2",
-                        title: localized("Show on All Displays"),
-                        isOn: allDisplaysBinding
-                    )
-                    toggleRow(
-                        symbol: "rectangle.topthird.inset.filled",
-                        title: localized("Full-Height Notch Without a Cutout"),
-                        isOn: fullSizeNotchBinding
-                    )
-                }
-
-                section(localized("Screenshots")) {
-                    toggleRow(
-                        symbol: "photo.on.rectangle",
-                        title: localized("Save Clipboard Screenshots"),
-                        isOn: saveClipboardImagesBinding
-                    )
-                    toggleRow(
-                        symbol: "eye",
-                        title: localized("Watch Screenshots Folder"),
-                        isOn: watchScreenshotFolderBinding
-                    )
+                section(localized("Files")) {
                     toggleRow(
                         symbol: "arrow.down.circle",
                         title: localized("Watch Downloads Folder"),
@@ -100,51 +65,8 @@ struct SettingsPane: View {
                             }
                         )
                     )
-                    ForEach(diag.lines.keys.sorted(), id: \.self) { key in
-                        Text(verbatim: "\(key): \(diag.lines[key] ?? "")")
-                            .font(.system(size: 9))
-                            .foregroundStyle(Theme.tertiary)
-                            .lineLimit(2)
-                            .padding(.horizontal, 8)
-                    }
-                    actionRow(symbol: "folder", title: localized("Show Screenshots Folder")) {
-                        ScreenshotVault.reveal()
-                    }
-                    actionRow(
-                        symbol: "trash",
-                        title: clearTitle,
-                        disabled: screenshotUsage.files == 0
-                    ) {
-                        ScreenshotVault.clear()
-                        shelf.load()
-                        // The files were just deleted, so the cards have to go
-                        // with them. Safe to look here: the vault lives in the
-                        // app's own folder, which macOS does not guard.
-                        shelf.refreshFromDisk()
-                        refreshUsage()
-                    }
                 }
 
-                section(localized("Snippets")) {
-                    actionRow(symbol: "doc.text", title: localized("Show Snippets File")) {
-                        vm.snippets.reveal()
-                    }
-                }
-
-                // What lives in this file is documented in #67: everything
-                // above that makes sense on another Mac, in one place instead
-                // of five.
-                section(localized("Configuration")) {
-                    if config.fileBroken { configBrokenNotice }
-                    actionRow(symbol: "gearshape", title: localized("Show Config File")) {
-                        ConfigStore.reveal()
-                    }
-                }
-
-                // The one door left once the menu bar icon is gone (#5): a
-                // status item is not required to hide it any more, so quitting
-                // must not require one either. Last on purpose — leaving is
-                // not something to meet on the way to a switch.
                 section(localized("Cyclop")) {
                     actionRow(symbol: "power", title: localized("Quit Cyclop")) {
                         NSApp.terminate(nil)

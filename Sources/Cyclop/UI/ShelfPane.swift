@@ -92,18 +92,6 @@ struct ShelfPane: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            captureButton(symbol: "viewfinder", title: localized("Screenshot")) { vm.captureRegion() }
-            captureButton(
-                symbol: vm.captureState == .page ? "hourglass" : "doc.richtext",
-                title: vm.captureState == .page ? localized("Capturing…") : localized("Whole Page")
-            ) { vm.capturePage() }
-            if case .failed(let message) = vm.captureState {
-                Text(message)
-                    .font(.system(size: 9))
-                    .foregroundStyle(Theme.tertiary)
-                    .lineLimit(1)
-                    .onTapGesture { vm.captureState = .idle }
-            }
             if !shelf.selection.isEmpty {
                 Text(localized("Selected: %d", shelf.selection.count))
                     .font(.system(size: 9))
